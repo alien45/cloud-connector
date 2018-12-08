@@ -1,0 +1,12 @@
+# Go Dep files
+vendor/
+Gopkg.*
+
+# VS Code files
+.vscode
+
+# Go test files
+*_test.go
+
+# JSON files
+*.json
