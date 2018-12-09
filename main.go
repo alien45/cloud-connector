@@ -70,5 +70,5 @@ func respondError(w http.ResponseWriter, msg string, statusCode int) {
 		msg = http.StatusText(statusCode)
 	}
 	http.Error(w, msg, statusCode)
-	log.Printf("[response] [status%d] [error] %s\n", statusCode, err.Error())
+	log.Printf("[response] [status%d] %s\n", statusCode, msg)
 }
