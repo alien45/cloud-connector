@@ -42,8 +42,6 @@ func main() {
 func respondJSON(w http.ResponseWriter, content interface{}, statusCode int) {
 	b, err := json.Marshal(content)
 	if respondIfError(err, w, "Something went wrong!", err500) {
-		log.Println("[response] [error] [json]", err)
-
 		return
 	}
 	w.WriteHeader(statusCode)
@@ -52,6 +50,8 @@ func respondJSON(w http.ResponseWriter, content interface{}, statusCode int) {
 	if err != nil {
 		log.Println("[response] [error]", err)
 	}
+
+	log.Printf("[response] [status%d] %s\n", statusCode, http.StatusText(statusCode))
 }
 
 func respondIfError(err error, w http.ResponseWriter, msg string, statusCode int) bool {
@@ -70,4 +70,5 @@ func respondError(w http.ResponseWriter, msg string, statusCode int) {
 		msg = http.StatusText(statusCode)
 	}
 	http.Error(w, msg, statusCode)
+	log.Printf("[response] [status%d] [error] %s\n", statusCode, err.Error())
 }

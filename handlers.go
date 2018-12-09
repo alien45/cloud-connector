@@ -35,6 +35,7 @@ func containersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer loc.Close()
+	log.Println("Connected to ", con.Kind)
 
 	containers, cursor, err := loc.Containers(con.Cursor, "", con.Count)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve containers. Error: %v", err), err500) {
@@ -59,12 +60,13 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Dialing %s/%s\n", con.Kind, con.ContainerName)
+	log.Printf("Dialing %s/%s", con.Kind, con.ContainerName)
 	loc, err := dial(con.Kind, con.ConfigMap)
 	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.Kind, err), err500) {
 		return
 	}
 	defer loc.Close()
+	log.Printf("Connected to %s/%s", con.Kind, con.ContainerName)
 
 	container, err := loc.Container(con.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
@@ -106,6 +108,7 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sourceLoc.Close()
+	log.Printf("Connected to %s/%s", con.From.Kind, con.From.ContainerName)
 
 	sourceContainer, err := sourceLoc.Container(con.From.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
@@ -122,6 +125,9 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.To.Kind, err), err500) {
 		return
 	}
+	defer destLoc.Close()
+	log.Printf("Connected to %s/%s", con.To.Kind, con.To.ContainerName)
+
 	destContainer, err := destLoc.Container(con.To.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
 		return
@@ -145,6 +151,8 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 			name = item.Name()
 		}
 	}
+
+	log.Printf("Transfering %s from %s/%s to %s/%s", name, con.From.Kind, con.From.ContainerName, con.To.Kind, con.To.ContainerName)
 	copiedItem, err := destContainer.Put(name, reader, size, metadata)
 	if respondIfError(err, w, fmt.Sprintf("File transfer failed. Error: %v", err), err500) {
 		return
@@ -180,6 +188,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.Kind, err), err500) {
 		return
 	}
+	defer destLoc.Close()
+	log.Printf("Connected to %s/%s", con.Kind, con.ContainerName)
+
 	destContainer, err := destLoc.Container(con.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
 		return
@@ -188,7 +199,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = fileHandle.Filename
 	}
-	log.Printf("Uploading %s to %s", name, con.Kind)
+	log.Printf("Uploading %s to %s/%s", name, con.Kind, con.ContainerName)
 	item, err := destContainer.Put(name, file, fileHandle.Size, map[string]interface{}{})
 	if respondIfError(err, w, fmt.Sprintf("Failed to upload file to %s. Error: %v", con.Kind, err), err500) {
 		return
