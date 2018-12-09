@@ -1,12 +1,31 @@
 # Cloud Connector
 Connect to various cloud storage providers, transfer files between them or upload.
 
-# API Guideline
+## How to start application
+If using pre-built executable binary from ./builds directory, navigate to the project root directory (where main.go resides) start application in the command line as follows:\
+```./builds/builds/cloud-connector-ubuntu64```
 
-## /container - POST
+## How to build
+Building Cloud Connector requires Golang application to be installed and GOROOT & GOPATH set up properly. If you haven't already, do so by follwoing instructions from http://golang.org. 
+
+Now retrieve dependent packages required by the application.
+```bash
+go get -v github.com/graymeta/stow
+go get -v github.com/graymeta/stow/azure
+go get -v github.com/graymeta/stow/google
+go get -v github.com/graymeta/stow/s3
+```
+After that navigate to the project root directory and run the following command:\
+```go build -o builds/cloud-connector```
+
+PS: By default Cloud Connector is supports the following providers: Google Cloud Storage, Amazon AWS S3, Microsoft Azure. However, the Stow project supports other providers such as B2, Swift and Oracle. If support for those are required, 1) import the required packages in the Storage.go file and retrieve the package by runnig the ```go get``` command rebuild the executable binary as mentioned above.
+
+## API Guideline
+
+### /container - POST
 Lists containers from a specific provider
 
-### JSON Body:
+##### JSON Body:
 
 ```js
 {
@@ -20,10 +39,10 @@ Lists containers from a specific provider
 }
 ```
 
-## /items - POST
+### /items - POST
 Lists objects/files from a specific container/bucket
 
-### JSON Body:
+##### JSON Body:
 ```js
 {
     "kind": "",
@@ -35,10 +54,10 @@ Lists objects/files from a specific container/bucket
 }
 ```
 
-## /copy - POST
+### /copy - POST
 Transfer a single file from one provider to another. For multiple files, invoke separately
 
-### JSON Body:
+##### JSON Body:
 ```js
 {
     "from": {
@@ -58,11 +77,11 @@ Transfer a single file from one provider to another. For multiple files, invoke 
 }
 ```
 
-## /upload - POST
+### /upload - POST
 Upload file directly to container.
 The request must be created using Form Data. Refer to /public/index.html for example.
 
-### Form Data:
+##### Form Data:
 ```js
 {
     "file": (file binary),
@@ -76,10 +95,10 @@ The request must be created using Form Data. Refer to /public/index.html for exa
 }
 ```
 
-## /getjsonstring
+### /getjsonstring
 Returns supplied JSON object/array as a single string value by escaping required characters. Can be usesful for the "json" attribute of the "config_map" for connecting to Google Cloud Storage account.
 
-### JSON Body:
+##### JSON Body:
 ```js
 {
     "key1": "value",
@@ -88,9 +107,9 @@ Returns supplied JSON object/array as a single string value by escaping required
 }
 ```
 
-# config_map
+## config_map
 config_map properties for different providers
-## config_map for AWS S3
+### config_map for AWS S3
 ```js
 {
     "access_key_id": "",
@@ -98,19 +117,19 @@ config_map properties for different providers
     "region":      ""   // example: us-east-1
 }
 ```
-## config_map for Google Cloud Storage
+### config_map for Google Cloud Storage
 ```js
 {
     "project_id": "", // project id
     "json":""         // entire json file downloaded from Google as string with double quotes escaped using backslash. If unsure use the API function "/getjsonstring" below
 }
 ```
-## config_map for Azure
+### config_map for Azure
 ```js
 {
     "account": "",
     "key":   ""
 }
 ```
-## config_map for other providers
+### config_map for other providers
 Please refer to the supported providers https://github.com/graymeta/stow. Required config_map attributes can be found in the confg.go file of the respective package insite the "const" declarations
