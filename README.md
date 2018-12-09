@@ -56,7 +56,7 @@ Lists containers from a specific provider
     }
 }
 ```
-##### Expected Output
+##### Success Response - Status Code 200
 ```json
 {
     "cursor": "",
@@ -83,7 +83,7 @@ Lists objects/files from a specific container/bucket
     }
 }
 ```
-##### Expected success output - Status Code 200
+##### Success Response - Status Code 200
 ```json
 {
     "cursor": "test/Faxee/scripts/i18n/angular-locale_en-bz.js",
@@ -123,7 +123,7 @@ Transfer a single file from one provider to another. For multiple files, invoke 
     }
 }
 ```
-##### Expected Success Output - Status Code 201
+##### Success Response - Status Code 201
 ```json
 {
     "id": "new/path/to/uploaded-file.jpg",
@@ -151,7 +151,7 @@ The request must be created using Form Data. Refer to /public/index.html for exa
     }
 }
 ```
-##### Expected success ouput - Status Code 201
+##### Success Response - Status Code 201
 ```json
 {
     "id": "new/path/to/uploaded-file.jpg",
@@ -173,7 +173,7 @@ Returns supplied JSON object/array as a single string value by escaping required
     "key3": "value"
 }
 ```
-##### Expected success ouput: Status Code 200
+##### Success Response: Status Code 200
 ```json
 "{\"key1\":\"value\",\"key2\":\"value\",\"key3\":\"value\"}"
 ```
