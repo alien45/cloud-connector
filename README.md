@@ -45,7 +45,7 @@ Lists containers from a specific provider
 
 ##### JSON Body:
 
-```json
+```js
 {
     "kind": "",    // s3, google, azure
     "cursor": "",  // for pagination
@@ -57,7 +57,7 @@ Lists containers from a specific provider
 }
 ```
 ##### Success Response - Status Code 200
-```json
+```js
 {
     "cursor": "",
     "count": 1,
@@ -73,7 +73,7 @@ Lists containers from a specific provider
 Lists objects/files from a specific container/bucket
 
 ##### JSON Body:
-```json
+```js
 {
     "kind": "",
     "container_name": "", // Name of the container/bucket
@@ -84,7 +84,7 @@ Lists objects/files from a specific container/bucket
 }
 ```
 ##### Success Response - Status Code 200
-```json
+```js
 {
     "cursor": "test/Faxee/scripts/i18n/angular-locale_en-bz.js",
     "count": 99,
@@ -105,7 +105,7 @@ Lists objects/files from a specific container/bucket
 Transfer a single file from one provider to another. For multiple files, invoke separately
 
 ##### JSON Body:
-```json
+```js
 {
     "from": {
         "kind": "",
@@ -124,7 +124,7 @@ Transfer a single file from one provider to another. For multiple files, invoke 
 }
 ```
 ##### Success Response - Status Code 201
-```json
+```js
 {
     "id": "new/path/to/uploaded-file.jpg",
     "name": "new/path/to/uploaded-file.jpg",
@@ -152,7 +152,7 @@ The request must be created using Form Data. Refer to /public/index.html for exa
 }
 ```
 ##### Success Response - Status Code 201
-```json
+```js
 {
     "id": "new/path/to/uploaded-file.jpg",
     "name": "new/path/to/uploaded-file.jpg",
@@ -166,7 +166,7 @@ The request must be created using Form Data. Refer to /public/index.html for exa
 Returns supplied JSON object/array as a single string value by escaping required characters. Can be usesful for the "json" attribute of the "config_map" for connecting to Google Cloud Storage account.
 
 ##### JSON Body:
-```json
+```js
 {
     "key1": "value",
     "key2": "value",
@@ -174,29 +174,38 @@ Returns supplied JSON object/array as a single string value by escaping required
 }
 ```
 ##### Success Response: Status Code 200
-```json
+```js
 "{\"key1\":\"value\",\"key2\":\"value\",\"key3\":\"value\"}"
 ```
 
 ## config_map
 config_map properties for different providers
 ### config_map for AWS S3
-```json
+```js
 {
     "access_key_id": "",
     "secret_key":   "",
-    "region":      ""   // example: us-east-1
+    "region":      "us-east-1"
 }
 ```
 ### config_map for Google Cloud Storage
-```json
+```js
 {
     "project_id": "", // project id
     "json":""         // entire json file downloaded from Google as string with double quotes escaped using backslash. If unsure use the API function "/getjsonstring" below
 }
 ```
+#### If you are not sure what/how to use Google credentials follow the steps below:
+1. Login to google cloud console
+2.Go to menu (top left)>> IAM & Admin >> Service accounts
+3. Create a new service account (account that can access your GCloud storage). Fill up the form and submit.
+4. Then on the next step you can assign a role(recommended). From "Storage" at the bottom of roles list select either "Admin" or "Object Admin" for now ("creator" for write only access, "viewer" for read only access)
+5. On the next step click "create key" then select "json" and click create to down the json file
+6. Copy the entire content of the json file and convert it to text by using the /getjsonstring API.
+7. Now use it inside config_map on the "json" attribute.
+
 ### config_map for Azure
-```json
+```js
 {
     "account": "",
     "key":   ""
