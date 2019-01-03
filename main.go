@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,16 +25,17 @@ func main() {
 	if len(args) >= 2 && strings.ToLower(args[1]) == "demo" {
 		// Serve ./public directory as web page for testing file upload
 		http.Handle("/", http.FileServer(http.Dir("./public")))
-		fmt.Printf("Visit http://localhost:%s to test file upload\n", port)
+		log.Printf("Visit http://localhost:%s to test file upload\n", port)
 	}
 	// Register handers for API endpoints
+	http.HandleFunc("/dial", dialHandler)
 	http.HandleFunc("/containers", containersHandler)
 	http.HandleFunc("/items", itemsHandler)
 	http.HandleFunc("/copy", copyHandler)
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/getjsonstring", getJSONStringHandler)
 
-	fmt.Println("Cloud connector started at port ", port)
+	log.Println("Cloud connector started at port ", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
@@ -44,11 +44,12 @@ func respondJSON(w http.ResponseWriter, content interface{}, statusCode int) {
 	if respondIfError(err, w, "Something went wrong!", err500) {
 		return
 	}
-	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 	_, err = w.Write(b)
 	if err != nil {
 		log.Println("[response] [error]", err)
+		return
 	}
 
 	log.Printf("[response] [status%d] %s\n", statusCode, http.StatusText(statusCode))
