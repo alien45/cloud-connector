@@ -21,21 +21,19 @@ func getJSONStringHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, string(b), ok200)
 }
 
+// dialHandler connects to cloud storage provider and validates whether credentials are correct
+func dialHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[Request] %s", r.URL.Path)
+	_, _, success := connect(w, r)
+	respondJSON(w, map[string]bool{"success": success}, ok200)
+}
+
 func containersHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Request] %s", r.URL.Path)
-	con := Connection{}
-	err = json.NewDecoder(r.Body).Decode(&con)
-	if respondIfError(err, w, fmt.Sprintf("Valid JSON body required. Error: %v", err), err400) {
+	con, loc, success := connect(w, r)
+	if !success {
 		return
 	}
-
-	log.Println("Dialing ", con.Kind)
-	loc, err := dial(con.Kind, con.ConfigMap)
-	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. Error: %v", con.Kind, err), err500) {
-		return
-	}
-	defer loc.Close()
-	log.Println("Connected to ", con.Kind)
 
 	containers, cursor, err := loc.Containers(con.Cursor, "", con.Count)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve containers. Error: %v", err), err500) {
@@ -54,19 +52,10 @@ func containersHandler(w http.ResponseWriter, r *http.Request) {
 
 func itemsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Request] %s", r.URL.Path)
-	con := Connection{}
-	err = json.NewDecoder(r.Body).Decode(&con)
-	if respondIfError(err, w, fmt.Sprintf("Valid JSON body required. Error: %v", err), err400) {
+	con, loc, success := connect(w, r)
+	if !success {
 		return
 	}
-
-	log.Printf("Dialing %s/%s", con.Kind, con.ContainerName)
-	loc, err := dial(con.Kind, con.ConfigMap)
-	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.Kind, err), err500) {
-		return
-	}
-	defer loc.Close()
-	log.Printf("Connected to %s/%s", con.Kind, con.ContainerName)
 
 	container, err := loc.Container(con.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
@@ -91,6 +80,36 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, result, ok200)
 }
 
+func uploadHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[Request] %s", r.URL.Path)
+	con, destLoc, success := connectJSON(w, []byte(r.FormValue("to")))
+	if !success {
+		return
+	}
+
+	file, fileHandle, err := r.FormFile("file")
+	if respondIfError(err, w, fmt.Sprintf("Invalid file or file read failed. Error: %v", err), err400) {
+		return
+	}
+	defer file.Close()
+
+	destContainer, err := destLoc.Container(con.ContainerName)
+	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
+		return
+	}
+	name := con.ItemName
+	if name == "" {
+		name = fileHandle.Filename
+	}
+	log.Printf("Uploading %s to %s/%s", name, con.Kind, con.ContainerName)
+	item, err := destContainer.Put(name, file, fileHandle.Size, map[string]interface{}{})
+	if respondIfError(err, w, fmt.Sprintf("Failed to upload file to %s. Error: %v", con.Kind, err), err500) {
+		return
+	}
+	log.Printf("Upload complete: %s to %s", name, con.Kind)
+	respondJSON(w, item, created201)
+}
+
 func copyHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Request] %s", r.URL.Path)
 	con := struct {
@@ -103,11 +122,10 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Dialing source: %s/%s", con.From.Kind, con.From.ContainerName)
-	sourceLoc, err := dial(con.From.Kind, con.From.ConfigMap)
+	sourceLoc, err := con.From.Dial()
 	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.From.Kind, err), err500) {
 		return
 	}
-	defer sourceLoc.Close()
 	log.Printf("Connected to %s/%s", con.From.Kind, con.From.ContainerName)
 
 	sourceContainer, err := sourceLoc.Container(con.From.ContainerName)
@@ -121,19 +139,14 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 	item, err := sourceContainer.Item(itemID)
 
 	log.Printf("Dialing destination: %s/%s", con.To.Kind, con.To.ContainerName)
-	destLoc, err := dial(con.To.Kind, con.To.ConfigMap)
+	destLoc, err := con.To.Dial()
 	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.To.Kind, err), err500) {
 		return
 	}
-	defer destLoc.Close()
 	log.Printf("Connected to %s/%s", con.To.Kind, con.To.ContainerName)
 
 	destContainer, err := destLoc.Container(con.To.ContainerName)
 	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
-		return
-	}
-	reader, err := item.Open()
-	if respondIfError(err, w, fmt.Sprintf("Failed to open file. Error: %v", err), err500) {
 		return
 	}
 	size, err := item.Size()
@@ -152,6 +165,11 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	reader, err := item.Open()
+	if respondIfError(err, w, fmt.Sprintf("Failed to open file. Error: %v", err), err500) {
+		return
+	}
+	defer reader.Close()
 	log.Printf("Transfering %s from %s/%s to %s/%s", name, con.From.Kind, con.From.ContainerName, con.To.Kind, con.To.ContainerName)
 	copiedItem, err := destContainer.Put(name, reader, size, metadata)
 	if respondIfError(err, w, fmt.Sprintf("File transfer failed. Error: %v", err), err500) {
@@ -166,44 +184,4 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 		Metadata: metadata,
 	}
 	respondJSON(w, resultItem, created201)
-}
-
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[Request] %s", r.URL.Path)
-	con := Connection{}
-
-	err = json.Unmarshal([]byte(r.FormValue("to")), &con)
-	if respondIfError(err, w, fmt.Sprintf("Valid JSON required. Error: %v", err), err400) {
-		return
-	}
-
-	file, fileHandle, err := r.FormFile("file")
-	if respondIfError(err, w, fmt.Sprintf("Invalid file or file read failed. Error: %v", err), err400) {
-		return
-	}
-	defer file.Close()
-
-	log.Printf("Dialing destination: %s/%s", con.Kind, con.ContainerName)
-	destLoc, err := dial(con.Kind, con.ConfigMap)
-	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. %v", con.Kind, err), err500) {
-		return
-	}
-	defer destLoc.Close()
-	log.Printf("Connected to %s/%s", con.Kind, con.ContainerName)
-
-	destContainer, err := destLoc.Container(con.ContainerName)
-	if respondIfError(err, w, fmt.Sprintf("Failed to retrieve container. Error: %v", err), err500) {
-		return
-	}
-	name := con.ItemName
-	if name == "" {
-		name = fileHandle.Filename
-	}
-	log.Printf("Uploading %s to %s/%s", name, con.Kind, con.ContainerName)
-	item, err := destContainer.Put(name, file, fileHandle.Size, map[string]interface{}{})
-	if respondIfError(err, w, fmt.Sprintf("Failed to upload file to %s. Error: %v", con.Kind, err), err500) {
-		return
-	}
-	log.Printf("Upload complete: %s to %s", name, con.Kind)
-	respondJSON(w, item, created201)
 }

@@ -40,6 +40,27 @@ Error caused by input data  : 400 - bad request
 Other errors                : 500 - internal server error
 ```
 
+### /dial - POST
+Validate credentials by dialing a connection to cloud storage provider.
+
+##### JSON Body:
+
+```js
+{
+    "kind": "",    // s3, google, azure
+    "config_map": {
+        // depends on the value provided in "kind"
+        // see "config_map" below for specifics 
+    }
+}
+```
+##### Success Response - Status Code 200
+```js
+{
+    "success": true
+}
+```
+
 ### /container - POST
 Lists containers from a specific provider
 

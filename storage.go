@@ -1,6 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+
 	"github.com/graymeta/stow"
 	_ "github.com/graymeta/stow/azure"
 	_ "github.com/graymeta/stow/google"
@@ -15,6 +21,38 @@ type Connection struct {
 	ItemName      string         `json:"item_name"`
 	ConfigMap     stow.ConfigMap `json:"config_map"`
 	Pagination
+}
+
+// Dial initates a connection to cloud storage provider. Will close connection automatically.
+func (c Connection) Dial() (loc stow.Location, err error) {
+	loc, err = stow.Dial(c.Kind, c.ConfigMap)
+	if err == nil {
+		defer loc.Close()
+	}
+	return
+}
+
+func connect(w http.ResponseWriter, r *http.Request) (con Connection, loc stow.Location, success bool) {
+	bytes, err := ioutil.ReadAll(r.Body)
+	if respondIfError(err, w, fmt.Sprintf("Failed to read request body. Error: %v", err), err400) {
+		return
+	}
+	return connectJSON(w, bytes)
+}
+func connectJSON(w http.ResponseWriter, jsonB []byte) (con Connection, loc stow.Location, success bool) {
+	err = json.Unmarshal(jsonB, &con)
+	if respondIfError(err, w, fmt.Sprintf("Valid JSON body required. Error: %v", err), err400) {
+		return
+	}
+
+	log.Println("Dialing ", con.Kind)
+	loc, err := con.Dial()
+	if respondIfError(err, w, fmt.Sprintf("Connection to %s failed. Error: %v", con.Kind, err), err500) {
+		return
+	}
+	success = true
+	log.Println("Connected to", con.Kind, con.ContainerName)
+	return
 }
 
 // Pagination stores data requried for Stow pagination
@@ -42,9 +80,4 @@ type Item struct {
 	Size     int64                  `json:"size"`
 	URL      string                 `json:"url"`
 	Metadata map[string]interface{} `json:"metadata"`
-}
-
-// dial initates a connection to cloud storage provider
-func dial(kind string, config stow.Config) (stow.Location, error) {
-	return stow.Dial(kind, config)
 }
